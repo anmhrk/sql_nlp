@@ -3,8 +3,10 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from agent import create_agent
+from getpass import getpass
+import asyncio
 
-load_dotenv()
+load_dotenv()  # In case of using .env file
 
 db_engine = None
 db_connection = None
@@ -13,13 +15,15 @@ db_connection = None
 def main():
     global db_engine, db_connection
 
-    if not os.getenv("OPENROUTER_API_KEY"):
-        raise ValueError("OPENROUTER_API_KEY is not set")
+    if not os.environ.get("OPENROUTER_API_KEY"):
+        os.environ["OPENROUTER_API_KEY"] = getpass(
+            "Please enter your OpenRouter API key: "
+        )
 
-    if not os.getenv("DATABASE_URL"):
-        raise ValueError("DATABASE_URL is not set")
+    if not os.environ.get("DATABASE_URL"):
+        os.environ["DATABASE_URL"] = getpass("Please enter your database URL: ")
 
-    database_url = os.getenv("DATABASE_URL")
+    database_url = os.environ.get("DATABASE_URL")
     print("Initializing database connection...")
 
     try:
@@ -30,10 +34,6 @@ def main():
         agent_executor = create_agent(db_engine, db_connection)
     except SQLAlchemyError as e:
         print(f"❌ Failed to connect to database: {e}")
-        print("\n💡 Please check:")
-        print("- DATABASE_URL is correct and accessible")
-        print("- Database server is running")
-        print("- Credentials are valid")
         return
     except Exception as e:
         print(f"❌ Unexpected error during setup: {e}")
@@ -53,57 +53,71 @@ def main():
         if not user_query:
             continue
 
-        print("\n" + "=" * 60)
-        print("🤖 Assistant is thinking...")
-        print("=" * 60)
-
-        # Stream the response
-        final_output = ""
-        tool_count = 0
-
         try:
-            for chunk in agent_executor.stream({"input": user_query}):
-                # Handle different types of chunks
-                if "actions" in chunk:
-                    # Tool calls
-                    for action in chunk["actions"]:
+
+            async def stream_response():
+                tool_count = 0
+                streaming_started = False
+
+                print("🤖 Assistant is thinking...", end="", flush=True)
+
+                async for event in agent_executor.astream_events(
+                    {"input": user_query}, version="v2"
+                ):
+                    event_type = event.get("event")
+
+                    if event_type == "on_tool_start":
                         tool_count += 1
-                        print(f"\n🔧 Tool Call #{tool_count}: {action.tool}")
-                        print(f"📝 Input: {action.tool_input}")
+                        tool_name = event.get("name", "Unknown")
+                        tool_input = event.get("data", {}).get("input", "")
+                        print(f"\n🔧 Tool Call #{tool_count}: {tool_name}")
+                        print(f"📝 Input: {tool_input}")
                         print("⏳ Executing...")
 
-                elif "steps" in chunk:
-                    # Tool results
-                    for step in chunk["steps"]:
-                        result = step.observation
-                        print(f"✅ Result: {result}")
+                    elif event_type == "on_tool_end":
+                        tool_output = event.get("data", {}).get("output", "")
+                        print(f"✅ Result: {tool_output}")
                         print("-" * 40)
 
-                elif "output" in chunk:
-                    # Final output
-                    output_text = chunk["output"]
-                    final_output = output_text
-                    print("\n💬 Final Response:")
-                    print("-" * 20)
-                    print(output_text)
-                    print("=" * 60)
+                    elif event_type == "on_chat_model_stream":
+                        chunk = event.get("data", {}).get("chunk", {})
+                        if hasattr(chunk, "content") and chunk.content:
+                            if not streaming_started:
+                                streaming_started = True
+                                print("\r", end="", flush=True)
+                                print("🧠 Agent reasoning:")
+                                print("-" * 20)
+                            print(chunk.content, end="", flush=True)
 
-            if not final_output:
-                print("❌ No response generated.")
+                    elif event_type == "on_chain_end":
+                        if event.get("name") == "AgentExecutor":
+                            if streaming_started:
+                                print("\n" + "-" * 40)
+
+                            output = event.get("data", {}).get("output", "")
+                            if output:
+                                if isinstance(output, dict) and "output" in output:
+                                    final_message = output["output"]
+                                elif isinstance(output, str):
+                                    final_message = output
+                                else:
+                                    final_message = str(output)
+
+                                print("\n💬 Final Response:")
+                                print("-" * 20)
+                                print(final_message)
+                                print("=" * 60)
+
+            asyncio.run(stream_response())
 
         except SQLAlchemyError as e:
             print(f"❌ Database Error: {e}")
-            print("\n💡 Suggestions:")
-            print("- Check if your database is running and accessible")
-            print("- Verify your DATABASE_URL environment variable")
-            print("- Ensure you have proper database permissions")
             print("=" * 60)
         except KeyboardInterrupt:
-            print("\n\n👋 Interrupted by user. Goodbye!")
+            print("\n\n❌ Interrupted by user")
             break
         except Exception as e:
             print(f"❌ Unexpected Error: {e}")
-            print("\n💡 If this persists, please check your configuration.")
             print("=" * 60)
 
     if db_connection:

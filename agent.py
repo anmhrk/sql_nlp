@@ -9,7 +9,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 model = "anthropic/claude-sonnet-4"
 
-
 prompt = ChatPromptTemplate.from_messages(
     [
         (
@@ -50,7 +49,6 @@ Always use the schema information to write accurate SQL queries with correct col
 def create_agent(db_engine, db_connection):
     """Create an agent with database tools."""
 
-    # Initialize the LLM inside the function to avoid import-time errors
     OPENROUTER_API_KEY = SecretStr(os.getenv("OPENROUTER_API_KEY"))
     llm = ChatOpenAI(
         model=model,
@@ -94,7 +92,6 @@ def create_agent(db_engine, db_connection):
             result += "=" * 50 + "\n"
             result += f"Total columns: {len(columns)}\n\n"
 
-            # Format columns clearly
             for i, col in enumerate(columns, 1):
                 col_name = col["name"]
                 col_type = str(col["type"])
@@ -104,9 +101,6 @@ def create_agent(db_engine, db_connection):
                 result += f"{i:2}. Column: '{col_name}'\n"
                 result += f"    Type: {col_type}\n"
                 result += f"    Constraints: {nullable}{primary_key}\n\n"
-
-            result += "IMPORTANT: Column names are case-sensitive. Use EXACT column names in SQL queries.\n"
-            result += f'Example: SELECT "{columns[0]["name"]}" FROM "{table_name}"'
 
             return result
         except SQLAlchemyError as e:
@@ -163,6 +157,12 @@ def create_agent(db_engine, db_connection):
 
     agent = create_tool_calling_agent(llm, tools, prompt)
 
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False)
+    agent_executor = AgentExecutor(
+        agent=agent,
+        tools=tools,
+        verbose=False,
+        stream_runnable=True,
+        return_intermediate_steps=True,
+    )
 
     return agent_executor

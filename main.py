@@ -45,6 +45,7 @@ def main():
     while True:
         print("\nUser: ", end="")
         user_query = input().strip()
+        print("\n")
 
         if user_query.lower() in ["quit", "q"]:
             print("\nGoodbye!")
@@ -53,13 +54,13 @@ def main():
         if not user_query:
             continue
 
+        print("🤖 Assistant is thinking...", end="", flush=True)
+
         try:
 
             async def stream_response():
                 tool_count = 0
                 streaming_started = False
-
-                print("🤖 Assistant is thinking...", end="", flush=True)
 
                 async for event in agent_executor.astream_events(
                     {"input": user_query}, version="v2"
@@ -70,30 +71,26 @@ def main():
                         tool_count += 1
                         tool_name = event.get("name", "Unknown")
                         tool_input = event.get("data", {}).get("input", "")
-                        print(f"\n🔧 Tool Call #{tool_count}: {tool_name}")
-                        print(f"📝 Input: {tool_input}")
-                        print("⏳ Executing...")
+                        print(f"\n🔧 **Tool #{tool_count}: {tool_name}**")
+                        print(f"   Input: {tool_input}")
+                        print("   Status: Executing...", end="", flush=True)
 
                     elif event_type == "on_tool_end":
                         tool_output = event.get("data", {}).get("output", "")
-                        print(f"✅ Result: {tool_output}")
-                        print("-" * 40)
+                        print("\r   Status: ✅ Complete")
+                        print(f"   Result: {tool_output}")
+                        print("   " + "─" * 50)
 
                     elif event_type == "on_chat_model_stream":
                         chunk = event.get("data", {}).get("chunk", {})
                         if hasattr(chunk, "content") and chunk.content:
                             if not streaming_started:
                                 streaming_started = True
-                                print("\r", end="", flush=True)
-                                print("🧠 Agent reasoning:")
-                                print("-" * 20)
+                                print("\n🧠 **Agent Reasoning:**")
                             print(chunk.content, end="", flush=True)
 
                     elif event_type == "on_chain_end":
                         if event.get("name") == "AgentExecutor":
-                            if streaming_started:
-                                print("\n" + "-" * 40)
-
                             output = event.get("data", {}).get("output", "")
                             if output:
                                 if isinstance(output, dict) and "output" in output:
@@ -103,10 +100,9 @@ def main():
                                 else:
                                     final_message = str(output)
 
-                                print("\n💬 Final Response:")
-                                print("-" * 20)
+                                print("\n\n💬 **Final Answer:**")
                                 print(final_message)
-                                print("=" * 60)
+                                print("\n" + "─" * 60)
 
             asyncio.run(stream_response())
 

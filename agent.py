@@ -16,7 +16,7 @@ prompt = ChatPromptTemplate.from_messages(
             """You are a helpful SQL database assistant. You help users answer questions about their database by querying their database.
 
 CRITICAL RULES:
-1. You can ONLY execute SELECT queries. No INSERT, UPDATE, DELETE, or data modification allowed.
+1. You can ONLY execute SELECT queries. No INSERT, UPDATE, DELETE, or data modification allowed even if the user asks. This is a very STRICT rule.
 2. Column names are CASE-SENSITIVE. Always use the EXACT column names from the schema.
 3. When you get a schema, pay close attention to the exact spelling and case of column names.
 4. Use double quotes around column names if they contain special characters or mixed case.

@@ -112,8 +112,35 @@ def create_agent(db_engine, db_connection):
     def execute_sql_query(sql_query: str) -> str:
         """Execute a SQL query and return the results. ONLY SELECT queries are allowed."""
         query_upper = sql_query.strip().upper()
+
+        FORBIDDEN_OPERATIONS = [
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "DROP",
+            "CREATE",
+            "ALTER",
+            "TRUNCATE",
+            "REPLACE",
+            "MERGE",
+            "CALL",
+            "EXEC",
+            "EXECUTE",
+            "GRANT",
+            "REVOKE",
+            "COMMIT",
+            "ROLLBACK",
+            "SAVEPOINT",
+        ]
+
+        # Check if query starts with SELECT
         if not query_upper.startswith("SELECT"):
             return "ERROR: Only SELECT queries are allowed. No INSERT, UPDATE, DELETE, or other modification queries."
+
+        # Check for forbidden operations anywhere in the query
+        for operation in FORBIDDEN_OPERATIONS:
+            if operation in query_upper:
+                return f"ERROR: Forbidden operation '{operation}' detected in query. Only SELECT queries are allowed."
 
         try:
             result = db_connection.execute(text(sql_query))

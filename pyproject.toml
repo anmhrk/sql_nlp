@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "dotenv>=0.9.9",
+    "langchain-core>=0.3.72",
+    "langchain-openai>=0.3.28",
     "openai>=1.97.1",
     "psycopg2-binary>=2.9.0",
     "pydantic>=2.11.7",

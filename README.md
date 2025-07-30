@@ -4,9 +4,9 @@ A Python application that allows you to interact with your SQL databases using n
 
 ## Configured tools for the agent:
 
-1. get_table_names: List all tables in the database
-2. get_table_schema: Get the schema of a specific table
-3. execute_sql_query: Execute a custom SELECT SQL query
+1. `get_table_names`: List all tables in the database
+2. `get_table_schema`: Get the schema of a specific table
+3. `execute_sql_query`: Execute a custom SELECT SQL query
 
 The agent can only read data from the database using SELECT operations. There are guardrails in place to prevent any destructive operations like INSERT, UPDATE, DELETE. The agent will refuse to execute such queries.
 

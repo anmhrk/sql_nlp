@@ -24,6 +24,10 @@ def main():
         os.environ["DATABASE_URL"] = getpass("Please enter your database URL: ")
 
     database_url = os.environ.get("DATABASE_URL")
+
+    if "mysql" in database_url:
+        database_url = database_url.replace("mysql", "mysql+pymysql")
+
     print("Initializing database connection...")
 
     try:
@@ -48,19 +52,18 @@ def main():
         print("\n")
 
         if user_query.lower() in ["quit", "q"]:
-            print("\nGoodbye!")
+            print("Goodbye!")
             break
 
         if not user_query:
             continue
 
-        print("🤖 Assistant is thinking...", end="", flush=True)
+        print("🤖 The bot is thinking...\n")
 
         try:
 
             async def stream_response():
                 tool_count = 0
-                streaming_started = False
 
                 async for event in agent_executor.astream_events(
                     {"input": user_query}, version="v2"
@@ -80,29 +83,12 @@ def main():
                         print("\r   Status: ✅ Complete")
                         print(f"   Result: {tool_output}")
                         print("   " + "─" * 50)
+                        print("\n")
 
                     elif event_type == "on_chat_model_stream":
                         chunk = event.get("data", {}).get("chunk", {})
                         if hasattr(chunk, "content") and chunk.content:
-                            if not streaming_started:
-                                streaming_started = True
-                                print("\n🧠 **Agent Reasoning:**")
                             print(chunk.content, end="", flush=True)
-
-                    elif event_type == "on_chain_end":
-                        if event.get("name") == "AgentExecutor":
-                            output = event.get("data", {}).get("output", "")
-                            if output:
-                                if isinstance(output, dict) and "output" in output:
-                                    final_message = output["output"]
-                                elif isinstance(output, str):
-                                    final_message = output
-                                else:
-                                    final_message = str(output)
-
-                                print("\n\n💬 **Final Answer:**")
-                                print(final_message)
-                                print("\n" + "─" * 60)
 
             asyncio.run(stream_response())
 
